@@ -1,0 +1,129 @@
+{% load static %}
+
+<head>
+    <title>Music Player</title>
+    <script src="{% static 'js/jquery.min.js' %}"></script> <!-- Include jQuery or use Vanilla JS -->
+    <style>
+        /* Optional styling to highlight the current lyric */
+        .highlight {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="music-player">
+
+        {% for item in page_obj %}
+        <div class="cover">
+            <img src="{{ item.image.url }}" alt="">
+        </div>
+
+        <div class="title">
+            <h3>{{ item.artist }}</h3>
+            <h1>{{ item.title }}</h1>
+        </div>
+
+        <center>
+            <a href="{% url 'index' %}{% if page_obj.has_previous %}?page={{ page_obj.previous_page_number }}{% endif %}">
+                <i class="fa fa-step-backward fa-2x"></i>
+            </a> &nbsp; &nbsp; &nbsp;
+            <a href="{% url 'index' %}{% if page_obj.has_next %}?page={{ page_obj.next_page_number }}{% endif %}">
+                <i class="fa fa-step-forward fa-2x"></i>
+            </a>
+        </center>
+        
+        <div class="lecture">
+            <audio class="fc-media" style="width:100%;" id="fc-media-{{ forloop.counter }}" controls>
+                <source src="{% if item.audio %}{{ item.audio.url }}{% else %}{{ item.audio_link }}{% endif %}" type="audio/mpeg">
+                Your browser does not support the audio element.
+            </audio>
+        </div>
+
+        <div class="lyrics-section">
+            <div class="lyrics-container">
+                <div class="lyrics" id="lyrics-container-{{ forloop.counter }}">
+                    <!-- Lyrics will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+
+        
+        <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                const audioElement = document.getElementById('fc-media-{{ forloop.counter }}');
+                const lyricsContainer = document.getElementById('lyrics-container-{{ forloop.counter }}');
+        
+                // Correctly escape and parse the JSON string for JavaScript
+                const lyricsData = JSON.parse('{{ item.lyrics|escapejs }}'); // Correct JSON parsing
+        
+                let currentLyricIndex = 0;
+        
+                // Function to update lyrics display
+                function updateLyrics() {
+                    const currentTime = audioElement.currentTime;
+                    const currentLyric = lyricsData[currentLyricIndex];
+                    const nextLyric = lyricsData[currentLyricIndex + 1];
+        
+                    console.log("Current Audio Time:", currentTime);
+        
+                    // Check if it's time to update the lyric
+                    if (nextLyric && currentTime >= convertToSeconds(nextLyric.time)) {
+                        // Move to the next lyric
+                        currentLyricIndex++;
+                        highlightLyric(currentLyricIndex);
+                    } else if (currentLyric && currentTime < convertToSeconds(currentLyric.time)) {
+                        // If the currentTime is before the first lyric, reset the highlighting
+                        currentLyricIndex = 0;
+                        highlightLyric(currentLyricIndex);
+                    }
+                }
+        
+                // Convert time in "MM:SS.SS" format to seconds
+                function convertToSeconds(timeString) {
+                    const parts = timeString.split(':');
+                    return parseInt(parts[0], 10) * 60 + parseFloat(parts[1]);
+                }
+        
+                // Function to highlight the current lyric
+                function highlightLyric(index) {
+                    // Clear previous highlights
+                    const allLyrics = lyricsContainer.getElementsByTagName('p');
+                    for (let i = 0; i < allLyrics.length; i++) {
+                        allLyrics[i].classList.remove('highlight');
+                    }
+        
+                    // Highlight the new lyric
+                    const currentLyricElement = document.getElementById('lyric-' + index);
+                    if (currentLyricElement) {
+                        currentLyricElement.classList.add('highlight');
+                    }
+        
+                    console.log("Highlighting Lyric Index:", index);
+                }
+        
+                // Insert lyrics into the lyrics container
+                lyricsData.forEach(function(lyric, index) {
+                    const line = document.createElement('p');
+                    line.innerText = lyric.lyrics;
+                    line.id = 'lyric-' + index;
+                    lyricsContainer.appendChild(line);
+                });
+        
+                // Event listener to update lyrics in sync with audio playback
+                audioElement.addEventListener('timeupdate', updateLyrics);
+        
+                // Initial highlight to ensure it starts correctly
+                highlightLyric(currentLyricIndex);
+            });
+        </script>
+        
+
+        {% endfor %}
+
+    </div>
+
+</body>
+
